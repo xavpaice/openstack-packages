@@ -15,7 +15,7 @@ field which many people contribute to, there’s a significant chance we’ll wa
 to add a patch to code that might not even be merged upstream, let alone
 included in a stable release ready for a distro to package it up. This article
 describes how the folks at Catalyst IT in New Zealand go about taking the
-distro packages, and combining that with custom code to bring into packages
+distro packages, and combining that with custom code built into packages
 ready for deployment. We focus on Ubuntu packages because that's what Catalyst
 IT uses, but also because there's already a number of good quality tools
 focussed on rpm packages.
@@ -74,17 +74,15 @@ our fork of the source.
 
 First off, we needed to make a fork of the OpenStack code - e.g. for Nova, we
 cloned the git repo to our own Gerrit server, so we could manage the changes to
-sources with revision control.
-
-First off, we created the projects in Gerrit - you could easily substitute any
-kind of git location here.
+sources with revision control. Although we created the projects in Gerrit, you
+could easily substitute any kind of git location here.
 
 The following example is to clone Nova:
 
 ```shell
 git clone git@github.com:openstack/nova.git openstack-nova
 cd openstack-nova
-git remote add gerrit ssh://<user>@gerritserver:29418/openstack-nova
+git remote add gerrit ssh://<user>@gerrit.example.com:29418/openstack-nova
 git review -s
 git push gerrit origin/master:refs/heads/master
 git push gerrit origin/stable/icehouse:refs/heads/stable/icehouse
@@ -105,14 +103,14 @@ git clone bzr::lp:~ubuntu-server-dev/nova/icehouse
 
 At this stage, we opted to make the packaging tools into a separate repo, so we
 can keep things tidy.  In this case, we have a repo called
-openstack-nova-packaging which contains the content of the checkout above.  If
-we're willing to maintain our own copy of that packaging code, we're able to
-make changes so we can add in our own files, or add/remove quilt patches as
-appropriate.  We did find that some of our code added files which weren't
-included in the original packages - e.g. an additional dashboard in Horizon
-adds files outside of the original directories list and required either edits
-to the openstack-dashboard.dirs file, or creation of a fresh package within
-that set.
+openstack-nova-packaging which contains the content of the checkout above -
+which we added to Gerrit just like we did for openstack-nova.  If we're willing
+to maintain our own copy of that packaging code, we're able to make changes so
+we can add in our own files, or add/remove quilt patches as appropriate.  We
+did find that some of our code added files which weren't included in the
+original packages - e.g. an additional dashboard in Horizon adds files outside
+of the original directories list and required either edits to the
+openstack-dashboard.dirs file, or creation of a fresh package within that set.
 
 I should note that the debian directory obtained from the UCA
 has a number of Ubuntu specific patches in the debian/patches/ directory.
@@ -128,8 +126,8 @@ the code our devs use as consistent with what's running in production as
 possible.
 
 We're now equipped with two code repositories under our control, and so are
-ready to turn that into some debs ready to be put in our private repo.  I won't
-cover how we make a private repo here, it's nothing special.
+ready to turn that into some debs ready to be put in our private repo that was
+made earlier.
 
 The next issue we came across is that the packages we built locally on our
 Trusty workstations didn't install cleanly on Precise.  This should come as no
@@ -149,7 +147,7 @@ The steps to making packages therefore consist of the following:
 * do the actual package build
 
 I'll go through each step.  Note that we have automated all this in some very
-rudimentary shell scripts rather than run each step by hand, but somethings
+rudimentary shell scripts rather than run each step by hand, but some
 things need a little hand-holding and it's helpful to know what's actually
 happening.
 
@@ -198,8 +196,8 @@ directory tree. This means we can do the various edits and build steps without
 polluting our working code repo.
 
 ```shell
-git clone https://gerrit.example.com/openstack-horizon
-cd openstack-horizon
+git clone https://gerrit.example.com/openstack-nova
+cd openstack-nova
 git checkout origin/stable/icehouse
 ```
 
@@ -230,9 +228,9 @@ tar -xf $TARBALL
 ```
 
 Above we extracted the major version number from the setup.cfg in the source
-tree, ran setup.py to create the tarball itself, and from the output of that
-crudely extracted the resulting location of the tarball.  Then we moved it to a
-name and location that the package building tools understand.
+tree, we ran setup.py to create the tarball itself, and from the output of that
+command we crudely extracted the resulting location of the tarball.  Then we
+moved it to a name and location that the package building tools understand.
 
 Next, we copy the debian directory from our packaging repo into the source tree:
 
@@ -282,7 +280,9 @@ debuild -us -uc
 
 All things being well, you wind up with some packages at the root of your
 directory tree which can be installed in a test environment and put through
-their paces.
+their paces. We tend to pop them into a private repo, with either 'stable' or
+'testing' distribution, so we can test without upgrading in production till
+we're ready.
 
 Appendix: Puppet manifests
 --------------------------
@@ -360,5 +360,6 @@ Useful links
 ------------
 
 https://wiki.debian.org/Python/Packaging
+
 http://docs.openstack.org/developer/pbr/index.html
 
